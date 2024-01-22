@@ -1,0 +1,7 @@
+/backend/vendor/
+/backend/tmp/
+/backend/logs/
+
+/frontend/.next/
+/frontend/node_modules/
+/frontend/.env/

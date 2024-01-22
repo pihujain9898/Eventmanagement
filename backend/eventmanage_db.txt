@@ -1,0 +1,101 @@
+CREATE TABLE users (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, 
+  fname VARCHAR(255) NOT NULL, 
+  lname VARCHAR(255) NOT NULL, 
+  email VARCHAR(255) NOT NULL UNIQUE, 
+  password VARCHAR(255) NOT NULL, 
+  user_role ENUM('0', '1', '2') DEFAULT '0' NOT NULL COMMENT '0=User, 1=organiser, 2=admin', 
+  is_verified ENUM('0', '1') DEFAULT '1' COMMENT '0=Not Verified, 1=Verified' NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE event_category (
+  id INT AUTO_INCREMENT PRIMARY KEY, 
+  name VARCHAR(255) NOT NULL UNIQUE COMMENT 'Event Category Name', 
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE ticket_category (
+  id INT AUTO_INCREMENT PRIMARY KEY, 
+  name VARCHAR(255) NOT NULL UNIQUE COMMENT 'Ticket Category Name', 
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE events (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, 
+  name VARCHAR(255) NOT NULL, 
+  image VARCHAR(255), 			
+  introduction VARCHAR(255) NOT NULL, 
+  information VARCHAR(255) NOT NULL, 
+  notices VARCHAR(255) NOT NULL, 
+  policies VARCHAR(255) NOT NULL, 
+  start_time DATETIME NOT NULL, 
+  end_time DATETIME NOT NULL CHECK (end_time > start_time), 
+  category INT NOT NULL, 
+  created_by BIGINT NOT NULL, 
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL, 
+  FOREIGN KEY (category) REFERENCES event_category(id), 
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+DELIMITER //
+
+-- Trigger to check the start_time constraint
+CREATE TRIGGER check_start_time
+BEFORE INSERT ON events FOR EACH ROW
+BEGIN
+    IF NEW.start_time <= NOW() THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Invalid start_time';
+    END IF;
+END;
+//
+
+DELIMITER ;
+
+CREATE TABLE tickets (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, 
+  name VARCHAR(255) NOT NULL, 
+  description VARCHAR(255) NOT NULL,
+  price float NOT NULL,
+  category INT NOT NULL, 
+  event BIGINT NOT NULL, 
+  total_quantity int NOT NULL,
+  avilable_quantity INT NOT NULL CHECK (avilable_quantity <= total_quantity),
+  max_purchase_value INT NOT NULL CHECK (max_purchase_value <= total_quantity),
+  expiry TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL, 
+  FOREIGN KEY (category) REFERENCES ticket_category(id), 
+  FOREIGN KEY (event) REFERENCES events(id)
+);
+DELIMITER //
+
+CREATE TRIGGER check_expiry
+BEFORE INSERT ON tickets FOR EACH ROW
+BEGIN
+    DECLARE event_end_time TIMESTAMP;
+    SELECT end_time INTO event_end_time FROM events WHERE id = NEW.event;
+    IF NEW.expiry <= event_end_time THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Invalid expiry time';
+    END IF;
+END;
+//
+
+DELIMITER ;
+
+CREATE TABLE bookings (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT, 
+  user BIGINT NOT NULL, 
+  ticket BIGINT NOT NULL, 
+  quantity int NOT NULL,
+  individual_price INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL, 
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL, 
+  FOREIGN KEY (user) REFERENCES users(id), 
+  FOREIGN KEY (ticket) REFERENCES tickets(id)
+);
